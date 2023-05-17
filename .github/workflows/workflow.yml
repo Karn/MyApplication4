@@ -1,0 +1,50 @@
+name: Release Android apps (all environments)
+
+on:
+  workflow_dispatch:
+    inputs:
+      description:
+        description: "A description for the run."
+        required: false
+      # Version pinning
+      versions_java:
+        type: string
+        default: "17"
+
+jobs:
+  build:
+    name: Android Release
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.versions_java }}
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+
+      - name: Generate baseline profiles
+        id: baseline-profile
+        run: |
+          ./gradlew \
+            -Pandroid.sdk.channel=3 \
+            -Pandroid.testInstrumentationRunnerArguments.class=io.karn.benchmark.ExampleStartupBenchmark#startup \
+            -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect \
+            -Pandroid.experimental.testOptions.managedDevices.emulator.showKernelLogging=true \
+            -Dorg.gradle.jvmargs="-Xmx1536m -XX:+HeapDumpOnOutOfMemoryError" \
+            -Dorg.gradle.caching=true \
+            -Dorg.gradle.configureondemand=true \
+            -Dkotlin.compiler.execution.strategy=in-process \
+            -Dkotlin.incremental=false \
+            runBenchmark  \
+            --no-daemon
+
